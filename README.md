@@ -9,6 +9,14 @@ module that displays all data reported by lm-sensors
 * Extract the content of dist folder to /usr/share/cockpit/sensors
 * Check if Sensors tools is show on menu
 
+* Installation script provided by [@subz390](https://github.com/subz390): 
+
+        wget https://github.com/ocristopfer/cockpit-sensors/releases/download/v1.0.0/cockpit-sensors-1.tar.xz && \
+        tar -xf cockpit-sensors-1.tar.xz cockpit-sensors/dist && \
+        mv cockpit-sensors/dist /usr/share/cockpit/sensors && \
+        rm -r cockpit-sensors && \
+        rm cockpit-sensors-1.tar.xz
+
 # Prints
 ![alt text](https://i.ibb.co/KbbXQ0H/cockpit-sensors.png)
 
