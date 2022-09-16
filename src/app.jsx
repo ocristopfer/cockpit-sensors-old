@@ -45,11 +45,11 @@ export class Application extends React.Component {
 
     loadSensors = () => {
         cockpit
-                .spawn(["sensors", "-j"].concat(this.state.fahrenheitTemp))
-                .then((sucess, erro) => {
+                .spawn(["sensors", "-j"].concat(this.state.fahrenheitTemp), { err:"message", superuser: "try" })
+                .done((sucess) => {
                     this.setState({ sensors: JSON.parse(sucess) });
                 })
-                .catch((err) => {
+                .fail((err) => {
                     console.log(err);
                     if (err.message === "not-found") this.setAlert('lm-sensors not found', 'danger');
                     this.setAlert(err.message, 'warning');
