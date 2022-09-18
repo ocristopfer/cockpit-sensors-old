@@ -11,7 +11,7 @@ module that displays all data reported by lm-sensors
 
 * Installation script provided by [@subz390](https://github.com/subz390): 
 
-        wget https://github.com/ocristopfer/cockpit-sensors/releases/download/v1.1.0/cockpit-sensors.tar.xz && \
+        wget https://github.com/ocristopfer/cockpit-sensors/releases/latest/download/cockpit-sensors.tar.xz && \
         tar -xf cockpit-sensors.tar.xz cockpit-sensors/dist && \
         mv cockpit-sensors/dist /usr/share/cockpit/sensors && \
         rm -r cockpit-sensors && \
