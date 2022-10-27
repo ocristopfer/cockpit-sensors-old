@@ -4,7 +4,7 @@ module that displays all data reported by lm-sensors
 
 # Usage
 
-* Install lm-sensors and rum sensors-detect for list ao sensor of the machine.
+* Install lm-sensors (version 3.5 or newer) and rum sensors-detect for list ao sensor of the machine.
 * Download the lastest [Sensors release](https://github.com/ocristopfer/cockpit-sensors/releases) 
 * Extract the content of dist folder to /usr/share/cockpit/sensors
 * Check if Sensors tools is show on menu
