@@ -18,7 +18,7 @@ module that displays all data reported by lm-sensors
         rm cockpit-sensors.tar.xz
 
 # Prints
-![alt text]([https://i.ibb.co/KbbXQ0H/cockpit-sensors.png](https://i.ibb.co/426KMGk/cockpit-sensors.jpg))
+![alt text](https://i.ibb.co/426KMGk/cockpit-sensors.jpg)
 
 
 # Module created using Starter Kit
