@@ -25,7 +25,7 @@ import { FanIcon, ThermometerHalfIcon, ChargingStationIcon, CpuIcon } from '@pat
 export class Application extends React.Component {
     constructor() {
         super();
-        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, version: "", isShowLoading: false };
+        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: ["-l"], isShowLoading: false };
 
         cockpit.file('/etc/hostname').watch(content => {
             this.setState({ hostname: content.trim() });
@@ -44,22 +44,40 @@ export class Application extends React.Component {
     }
 
     loadSensors = () => {
-        if (this.state.version !== "") {
-            if (this.state.version >= "3.5.0") {
-                this.loadSensorsJson();
-            } else {
-                this.loadSensorsJsonFromRaw();
-            }
-            return;
-        }
         cockpit
-                .spawn(["sensors", "-v"].concat(this.state.fahrenheitTemp), { err: "message", superuser: "try" })
+                .spawn(["sensors", this.state.sensorArgumet].concat(this.state.fahrenheitTemp), { err: "message", superuser: "try" })
                 .done((sucess) => {
-                    this.setState({ isShowBtnInstall: false });
-                    let version = sucess.match(/([0-9]{1}.{2}.{3})/g);
-                    if (version.length > 0) {
-                        version = version[0].trim();
-                        this.setState({ version, alert: null });
+                    if (this.state.sensorArgumet === "-j") {
+                        this.setState({ sensors: JSON.parse(sucess), isShowBtnInstall: false });
+                    } else {
+                        const sensorsJson = {};
+                        sucess.split(/\n\s*\n/).forEach(raw => {
+                            let sensorsGroupName = "";
+                            let index = 0;
+                            let sensorTitle = "";
+                            raw.split(/\n\s*/).forEach(element => {
+                                if (index === 0) {
+                                    sensorsGroupName = element;
+                                    sensorsJson[sensorsGroupName] = {};
+                                }
+                                if (index === 1) {
+                                    const adapter = element.split(":");
+                                    sensorsJson[sensorsGroupName][adapter[0]] = adapter[1].trim();
+                                }
+                                if (index >= 2) {
+                                    const sensor = element.trim().split(":");
+                                    if (sensor[1] === "") {
+                                        sensorTitle = element.split(":")[0];
+                                        sensorsJson[sensorsGroupName][sensorTitle] = {};
+                                    } else {
+                                        sensorsJson[sensorsGroupName][sensorTitle][sensor[0]] = sensor[1].trim();
+                                    }
+                                }
+
+                                index += 1;
+                            });
+                        });
+                        this.setState({ sensors: sensorsJson, isShowBtnInstall:  false });
                     }
                 })
                 .fail((err) => {
@@ -68,59 +86,20 @@ export class Application extends React.Component {
                         this.setAlert('lm-sensors not found, you want install it ?', 'danger');
                         return;
                     }
+                    console.log(err.message);
+                    if (err.message === "sensors: invalid option -- 'j'") {
+                        this.setState({ sensorArgumet: ["-u"] });
+                        return;
+                    }
+
+                    if (err.message === "sensors: invalid option -- 'u'") {
+                        this.setAlert("this version of lm-sensors don't suport output sensors data!", 'danger');
+                        return;
+                    }
                     this.setAlert(err.message, 'warning');
                     clearInterval(this.state.intervalId);
                 });
     };
-
-    loadSensorsJson() {
-        cockpit
-                .spawn(["sensors", "-j"].concat(this.state.fahrenheitTemp), { err: "message", superuser: "try" })
-                .done((sucess) => {
-                    this.setState({ sensors: JSON.parse(sucess), isShowBtnInstall: false });
-                })
-                .fail((err) => {
-                    this.setAlert(err.message, 'warning');
-                });
-    }
-
-    loadSensorsJsonFromRaw() {
-        cockpit
-                .spawn(["sensors", "-u"].concat(this.state.fahrenheitTemp), { err: "message", superuser: "try" })
-                .done((sucess) => {
-                    const sensorsJson = {};
-                    sucess.split(/\n\s*\n/).forEach(raw => {
-                        let sensorsGroupName = "";
-                        let index = 0;
-                        let sensorTitle = "";
-                        raw.split(/\n\s*/).forEach(element => {
-                            if (index === 0) {
-                                sensorsGroupName = element;
-                                sensorsJson[sensorsGroupName] = {};
-                            }
-                            if (index === 1) {
-                                const adapter = element.split(":");
-                                sensorsJson[sensorsGroupName][adapter[0]] = adapter[1].trim();
-                            }
-                            if (index >= 2) {
-                                const sensor = element.trim().split(":");
-                                if (sensor[1] === "") {
-                                    sensorTitle = element.split(":")[0];
-                                    sensorsJson[sensorsGroupName][sensorTitle] = {};
-                                } else {
-                                    sensorsJson[sensorsGroupName][sensorTitle][sensor[0]] = sensor[1].trim();
-                                }
-                            }
-
-                            index += 1;
-                        });
-                    });
-                    this.setState({ sensors: sensorsJson, isShowBtnInstall:  false });
-                })
-                .fail((err) => {
-                    this.setAlert(err.message, 'warning');
-                });
-    }
 
     setIcon = (name) => {
         if (name.includes('fan')) {
