@@ -25,7 +25,7 @@ import { FanIcon, ThermometerHalfIcon, ChargingStationIcon, CpuIcon } from '@pat
 export class Application extends React.Component {
     constructor() {
         super();
-        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: ["-j"], isShowLoading: false };
+        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: "-j", isShowLoading: false };
 
         cockpit.file('/etc/hostname').watch(content => {
             this.setState({ hostname: content.trim() });
@@ -70,7 +70,7 @@ export class Application extends React.Component {
                                         sensorTitle = element.split(":")[0];
                                         sensorsJson[sensorsGroupName][sensorTitle] = {};
                                     } else {
-                                        sensorsJson[sensorsGroupName][sensorTitle][sensor[0]] = sensor[1].trim();
+                                        sensorsJson[sensorsGroupName][sensorTitle][sensor[0]] = parseFloat(sensor[1].trim());
                                     }
                                 }
 
@@ -86,9 +86,8 @@ export class Application extends React.Component {
                         this.setAlert('lm-sensors not found, you want install it ?', 'danger');
                         return;
                     }
-                    console.log(err.message);
                     if (err.message === "sensors: invalid option -- 'j'") {
-                        this.setState({ sensorArgumet: ["-u"] });
+                        this.setState({ sensorArgumet: "-u" });
                         return;
                     }
 
@@ -137,25 +136,20 @@ export class Application extends React.Component {
 
     handleInstallSensors = () => {
         this.setState({ isShowLoading : true });
-        console.log('instalando sensors');
         cockpit.spawn(["apt-get", "install", "lm-sensors", "-y"], { err: "message", superuser: "require" })
                 .done((sucess) => {
-                    console.log('instalou sensors', sucess);
                     cockpit.spawn(["sensors-detect", "--auto"], { err: "message", superuser: "require" })
                             .done((sucess) => {
                                 this.setState({ isShowLoading : false });
                                 cockpit.spawn(["modprobe", "coretemp"], { err: "message", superuser: "require" });
                                 cockpit.spawn(["modprobe", "i2c-i801"], { err: "message", superuser: "require" });
                                 cockpit.spawn(["modprobe", "drivetemp"], { err: "message", superuser: "require" });
-                                console.log('detectou sensors', sucess);
                             })
                             .fail((err) => {
-                                console.log('falhou sensors', err);
                                 this.setAlert(err.message, 'warning');
                             });
                 })
                 .fail((err) => {
-                    console.log('falhou sensors', err);
                     this.setAlert(err.message, 'warning');
                 });
     };
