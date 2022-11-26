@@ -19,13 +19,13 @@
 
 import cockpit from 'cockpit';
 import React from 'react';
-import { Alert, Card, CardTitle, CardBody, Checkbox, DataList, DataListItem, DataListItemRow, DataListItemCells, DataListCell } from '@patternfly/react-core';
+import { Alert, Card, CardTitle, CardBody, Checkbox, DataList, DataListItem, DataListItemRow, DataListItemCells, DataListCell, Button, Spinner } from '@patternfly/react-core';
 import { FanIcon, ThermometerHalfIcon, ChargingStationIcon, CpuIcon } from '@patternfly/react-icons/dist/esm/icons/';
 
 export class Application extends React.Component {
     constructor() {
         super();
-        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false };
+        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, version: "", isShowLoading: false };
 
         cockpit.file('/etc/hostname').watch(content => {
             this.setState({ hostname: content.trim() });
@@ -44,18 +44,83 @@ export class Application extends React.Component {
     }
 
     loadSensors = () => {
+        if (this.state.version !== "") {
+            if (this.state.version >= "3.5.0") {
+                this.loadSensorsJson();
+            } else {
+                this.loadSensorsJsonFromRaw();
+            }
+            return;
+        }
         cockpit
-                .spawn(["sensors", "-j"].concat(this.state.fahrenheitTemp), { err:"message", superuser: "try" })
+                .spawn(["sensors", "-v"].concat(this.state.fahrenheitTemp), { err: "message", superuser: "try" })
                 .done((sucess) => {
-                    this.setState({ sensors: JSON.parse(sucess) });
+                    this.setState({ isShowBtnInstall: false });
+                    let version = sucess.match(/([0-9]{1}.{2}.{3})/g);
+                    if (version.length > 0) {
+                        version = version[0].trim();
+                        this.setState({ version, alert: null });
+                    }
                 })
                 .fail((err) => {
-                    console.log(err);
-                    if (err.message === "not-found") this.setAlert('lm-sensors not found', 'danger');
+                    if (err.message === "not-found") {
+                        this.setState({ isShowBtnInstall: true });
+                        this.setAlert('lm-sensors not found, you want install it ?', 'danger');
+                        return;
+                    }
                     this.setAlert(err.message, 'warning');
                     clearInterval(this.state.intervalId);
                 });
     };
+
+    loadSensorsJson() {
+        cockpit
+                .spawn(["sensors", "-j"].concat(this.state.fahrenheitTemp), { err: "message", superuser: "try" })
+                .done((sucess) => {
+                    this.setState({ sensors: JSON.parse(sucess), isShowBtnInstall: false });
+                })
+                .fail((err) => {
+                    this.setAlert(err.message, 'warning');
+                });
+    }
+
+    loadSensorsJsonFromRaw() {
+        cockpit
+                .spawn(["sensors", "-u"].concat(this.state.fahrenheitTemp), { err: "message", superuser: "try" })
+                .done((sucess) => {
+                    const sensorsJson = {};
+                    sucess.split(/\n\s*\n/).forEach(raw => {
+                        let sensorsGroupName = "";
+                        let index = 0;
+                        let sensorTitle = "";
+                        raw.split(/\n\s*/).forEach(element => {
+                            if (index === 0) {
+                                sensorsGroupName = element;
+                                sensorsJson[sensorsGroupName] = {};
+                            }
+                            if (index === 1) {
+                                const adapter = element.split(":");
+                                sensorsJson[sensorsGroupName][adapter[0]] = adapter[1].trim();
+                            }
+                            if (index >= 2) {
+                                const sensor = element.trim().split(":");
+                                if (sensor[1] === "") {
+                                    sensorTitle = element.split(":")[0];
+                                    sensorsJson[sensorsGroupName][sensorTitle] = {};
+                                } else {
+                                    sensorsJson[sensorsGroupName][sensorTitle][sensor[0]] = sensor[1].trim();
+                                }
+                            }
+
+                            index += 1;
+                        });
+                    });
+                    this.setState({ sensors: sensorsJson, isShowBtnInstall:  false });
+                })
+                .fail((err) => {
+                    this.setAlert(err.message, 'warning');
+                });
+    }
 
     setIcon = (name) => {
         if (name.includes('fan')) {
@@ -91,52 +156,86 @@ export class Application extends React.Component {
         }
     };
 
+    handleInstallSensors = () => {
+        this.setState({ isShowLoading : true });
+        console.log('instalando sensors');
+        cockpit.spawn(["apt-get", "install", "lm-sensors", "-y"], { err: "message", superuser: "require" })
+                .done((sucess) => {
+                    console.log('instalou sensors', sucess);
+                    cockpit.spawn(["sensors-detect", "--auto"], { err: "message", superuser: "require" })
+                            .done((sucess) => {
+                                this.setState({ isShowLoading : false });
+                                cockpit.spawn(["modprobe", "coretemp"], { err: "message", superuser: "require" });
+                                cockpit.spawn(["modprobe", "i2c-i801"], { err: "message", superuser: "require" });
+                                cockpit.spawn(["modprobe", "drivetemp"], { err: "message", superuser: "require" });
+                                console.log('detectou sensors', sucess);
+                            })
+                            .fail((err) => {
+                                console.log('falhou sensors', err);
+                                this.setAlert(err.message, 'warning');
+                            });
+                })
+                .fail((err) => {
+                    console.log('falhou sensors', err);
+                    this.setAlert(err.message, 'warning');
+                });
+    };
+
     render() {
-        const { sensors, alert, fahrenheitChecked } = this.state;
+        const { sensors, alert, fahrenheitChecked, isShowBtnInstall, isShowLoading } = this.state;
         return (
-            <Card>
-                <CardTitle>Sensors</CardTitle>
-                <CardBody>
-                    <Checkbox
-                        label="Show temperature in Fahrenheit"
-                        isChecked={fahrenheitChecked}
-                        onChange={this.handleChange}
-                        id="fahrenheit-checkbox"
-                        name="fahrenheit-checkbox"
-                    />
-                    {alert != null ? <Alert variant={alert.variant}>{alert.msg}</Alert> : <></>}
-                    {sensors !== null
-                        ? Object.entries(sensors).map((key, index) =>
-                            <Card key={key}>
-                                <CardTitle>{key[0]}</CardTitle>
-                                <CardBody>
-                                    <CardTitle>{key[1].Adapter}</CardTitle>
-                                    <DataList aria-label="Compact data list example" isCompact>
-                                        <DataListItem aria-labelledby="simple-item1">
-                                            {
-                                                Object.entries(key[1]).map((item, index) => {
-                                                    if (index === 0) return null;
-                                                    return (
-                                                        <DataListItemRow key={item}>
-                                                            <DataListItemCells
-                                                                dataListCells={
-                                                                    Object.entries(item[1]).map((item, index) => (
-                                                                        <DataListCell key={item}>{index === 0 ? this.setIcon(item[0]) : ''} {this.adjustLabel(item[0])}: {item[1]}</DataListCell>
-                                                                    ))
-                                                                }
-                                                            />
-                                                        </DataListItemRow>
-                                                    );
-                                                })
-                                            }
-                                        </DataListItem>
-                                    </DataList>
-                                </CardBody>
-                            </Card>
-                        )
-                        : ''}
-                </CardBody>
-            </Card>
+            <>
+                <Card>
+                    <CardTitle>Sensors</CardTitle>
+                    <CardBody>
+                        <Checkbox
+                            label="Show temperature in Fahrenheit"
+                            isChecked={fahrenheitChecked}
+                            onChange={this.handleChange}
+                            id="fahrenheit-checkbox"
+                            name="fahrenheit-checkbox"
+                        />
+                        <>
+                            { isShowLoading ? <Spinner isSVG aria-label="Contents of the basic example" /> : <></>}
+                            {alert != null ? <Alert variant={alert.variant}>{alert.msg}</Alert> : <></>}
+                            {isShowBtnInstall ? <Button onClick={this.handleInstallSensors}>Install</Button> : <></>}
+                        </>
+                        {sensors !== null
+                            ? Object.entries(sensors).map((key, index) =>
+                                <Card key={key}>
+                                    <CardTitle>{key[0]}</CardTitle>
+                                    <CardBody>
+                                        <CardTitle>{key[1].Adapter}</CardTitle>
+                                        <DataList aria-label="Compact data list example" isCompact>
+                                            <DataListItem aria-labelledby="simple-item1">
+                                                {
+                                                    Object.entries(key[1]).map((item, index) => {
+                                                        if (index === 0) return item;
+                                                        return (
+                                                            <React.Fragment key={item}>
+                                                                <span>{item[0]}</span>
+                                                                <DataListItemRow key={item}>
+                                                                    <DataListItemCells
+                                                                    dataListCells={
+                                                                        Object.entries(item[1]).map((sensors, index) => (
+                                                                            <DataListCell key={sensors}>{index === 0 ? this.setIcon(sensors[0]) : ''} {this.adjustLabel(sensors[0])}: {sensors[1]}</DataListCell>
+                                                                        ))
+                                                                    }
+                                                                    />
+                                                                </DataListItemRow>
+                                                            </React.Fragment>
+                                                        );
+                                                    })
+                                                }
+                                            </DataListItem>
+                                        </DataList>
+                                    </CardBody>
+                                </Card>
+                            )
+                            : ''}
+                    </CardBody>
+                </Card>
+            </>
         );
     }
 }
