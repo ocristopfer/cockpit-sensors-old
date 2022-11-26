@@ -25,7 +25,7 @@ import { FanIcon, ThermometerHalfIcon, ChargingStationIcon, CpuIcon } from '@pat
 export class Application extends React.Component {
     constructor() {
         super();
-        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: ["-l"], isShowLoading: false };
+        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: ["-j"], isShowLoading: false };
 
         cockpit.file('/etc/hostname').watch(content => {
             this.setState({ hostname: content.trim() });
