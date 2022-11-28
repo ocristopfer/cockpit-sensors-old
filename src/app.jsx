@@ -169,7 +169,7 @@ export class Application extends React.Component {
                             name="fahrenheit-checkbox"
                         />
                         <>
-                            { isShowLoading ? <Spinner isSVG aria-label="Contents of the basic example" /> : <></>}
+                            {isShowLoading ? <Spinner isSVG /> : <></>}
                             {alert != null ? <Alert variant={alert.variant}>{alert.msg}</Alert> : <></>}
                             {isShowBtnInstall ? <Button onClick={this.handleInstallSensors}>Install</Button> : <></>}
                         </>
@@ -186,7 +186,7 @@ export class Application extends React.Component {
                                                         if (index === 0) return item;
                                                         return (
                                                             <React.Fragment key={item}>
-                                                                <span>{item[0]}</span>
+                                                                <span>{item[0]}:</span>
                                                                 <DataListItemRow key={item}>
                                                                     <DataListItemCells
                                                                     dataListCells={

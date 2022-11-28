@@ -189,3 +189,24 @@ $(NODE_MODULES_TEST): package.json
 	env -u NODE_ENV npm prune
 
 .PHONY: all clean install devel-install devel-uninstall print-version dist node-cache rpm prepare-check check vm print-vm
+
+deb:
+	mkdir -m775 -p "`pwd`/output/cockpit-sensors"
+	mkdir -m775 -p "`pwd`/output/cockpit-sensors/DEBIAN"
+	mkdir -m775 -p "`pwd`/output/cockpit-sensors/usr/share/cockpit/$(PACKAGE_NAME)"
+	cp -r dist/* "`pwd`/output/cockpit-sensors/usr/share/cockpit/$(PACKAGE_NAME)"
+
+	echo "Package: cockpit-sensors \n\
+Name: Cockpit Sensors \n\
+Description: Cockpit Sensors Module that displays all data reported by lm-sensors. \n\
+Author: ocristopfer <ocristopfer@gmail.com> \n\
+Maintainer: ocristopfer <ocristopfer@gmail.com> \n\
+Version: 1.2 \n\
+Depends: lm-sensors \n\
+Architecture: all \n\
+Homepage: https://github.com/ocristopfer/cockpit-sensors \n\
+Website: https://github.com/ocristopfer/cockpit-sensors " >> "`pwd`/output/cockpit-sensors/DEBIAN/control"
+	
+	dpkg-deb --build output/cockpit-sensors
+	mv "`pwd`/output/cockpit-sensors.deb" "`pwd`/"
+	rm -r "`pwd`/output"
