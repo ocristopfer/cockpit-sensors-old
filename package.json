@@ -4,6 +4,7 @@
   "main": "index.js",
   "repository": "git@github.com:ocristopfer/cockpit-sensors.git",
   "author": "",
+  "version": "1.3",
   "license": "LGPL-2.1",
   "scripts": {
     "watch": "webpack --watch --progress",

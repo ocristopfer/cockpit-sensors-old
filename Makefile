@@ -197,12 +197,12 @@ deb:
 	mkdir -m775 -p "`pwd`/output/cockpit-sensors/usr/share/cockpit/$(PACKAGE_NAME)"
 	cp -r dist/* "`pwd`/output/cockpit-sensors/usr/share/cockpit/$(PACKAGE_NAME)"
 
-	echo "Package: cockpit-sensors \n\
+	echo "Package: cockpit-$(PACKAGE_NAME) \n\
 Name: Cockpit Sensors \n\
 Description: Cockpit Sensors Module that displays all data reported by lm-sensors. \n\
 Author: ocristopfer <ocristopfer@gmail.com> \n\
 Maintainer: ocristopfer <ocristopfer@gmail.com> \n\
-Version: 1.2 \n\
+Version: 1.3 \n\
 Depends: lm-sensors \n\
 Architecture: all \n\
 Homepage: https://github.com/ocristopfer/cockpit-sensors \n\
