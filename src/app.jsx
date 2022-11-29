@@ -21,7 +21,7 @@ import cockpit from 'cockpit';
 import React from 'react';
 import { Alert, Card, CardTitle, CardBody, Checkbox, DataList, DataListItem, DataListItemRow, DataListItemCells, DataListCell, Button, Spinner } from '@patternfly/react-core';
 import { FanIcon, ThermometerHalfIcon, ChargingStationIcon, CpuIcon } from '@patternfly/react-icons/dist/esm/icons/';
-
+const _ = cockpit.gettext;
 export class Application extends React.Component {
     constructor() {
         super();
@@ -83,7 +83,7 @@ export class Application extends React.Component {
                 .fail((err) => {
                     if (err.message === "not-found") {
                         this.setState({ isShowBtnInstall: true });
-                        this.setAlert('lm-sensors not found, you want install it ?', 'danger');
+                        this.setAlert(_('lm-sensors not found, you want install it ?'), 'danger');
                         return;
                     }
                     if (err.message === "sensors: invalid option -- 'j'") {
@@ -92,7 +92,7 @@ export class Application extends React.Component {
                     }
 
                     if (err.message === "sensors: invalid option -- 'u'") {
-                        this.setAlert("this version of lm-sensors don't suport output sensors data!", 'danger');
+                        this.setAlert(_("this version of lm-sensors don't suport output sensors data!"), 'danger');
                         return;
                     }
                     this.setAlert(err.message, 'warning');
@@ -127,7 +127,7 @@ export class Application extends React.Component {
     handleChange = (checked, event) => {
         this.setState({ fahrenheitChecked: checked });
         if (checked) {
-            this.setAlert('lm-sensors has a bug that converts all data to fahrenheit, including voltage, fans and etc.', 'info');
+            this.setAlert(_('lm-sensors has a bug that converts all data to fahrenheit, including voltage, fans and etc.'), 'info');
             this.setState({ fahrenheitTemp: ['-f'] });
         } else {
             this.setState({ fahrenheitTemp: [], alert: null });
@@ -159,10 +159,10 @@ export class Application extends React.Component {
         return (
             <>
                 <Card>
-                    <CardTitle>Sensors</CardTitle>
+                    <CardTitle>{_('Sensors')}</CardTitle>
                     <CardBody>
                         <Checkbox
-                            label="Show temperature in Fahrenheit"
+                            label={_("Show temperature in Fahrenheit")}
                             isChecked={fahrenheitChecked}
                             onChange={this.handleChange}
                             id="fahrenheit-checkbox"
@@ -171,7 +171,7 @@ export class Application extends React.Component {
                         <>
                             {isShowLoading ? <Spinner isSVG /> : <></>}
                             {alert != null ? <Alert variant={alert.variant}>{alert.msg}</Alert> : <></>}
-                            {isShowBtnInstall ? <Button onClick={this.handleInstallSensors}>Install</Button> : <></>}
+                            {isShowBtnInstall ? <Button onClick={this.handleInstallSensors}>{_('Install')}</Button> : <></>}
                         </>
                         {sensors !== null
                             ? Object.entries(sensors).map((key, index) =>
@@ -179,8 +179,8 @@ export class Application extends React.Component {
                                     <CardTitle>{key[0]}</CardTitle>
                                     <CardBody>
                                         <CardTitle>{key[1].Adapter}</CardTitle>
-                                        <DataList aria-label="Compact data list example" isCompact>
-                                            <DataListItem aria-labelledby="simple-item1">
+                                        <DataList isCompact>
+                                            <DataListItem>
                                                 {
                                                     Object.entries(key[1]).map((item, index) => {
                                                         if (index === 0) return item;
