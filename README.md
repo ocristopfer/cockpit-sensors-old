@@ -15,6 +15,9 @@ module that displays all data reported by lm-sensors
         rm -r cockpit-sensors && \
         rm cockpit-sensors.tar.xz
 
+* .deb package:
+https://github.com/ocristopfer/cockpit-sensors/releases/latest/download/cockpit-sensors.deb
+
 # Prints
 ![alt text](https://i.ibb.co/y0SRY3t/cockpit.png)
 
