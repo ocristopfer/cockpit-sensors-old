@@ -44,9 +44,13 @@ msgstr "diese Version von lm-sensors unterstützt keine Ausgabe von Sensordaten!
 msgid "lm-sensors has a bug that converts all data to fahrenheit, including voltage, fans and etc."
 msgstr "lm-sensors hat einen Fehler, der alle Daten in Fahrenheit umwandelt, einschließlich Spannung, Lüfter usw."
 
-#: src/app.jsx:165
+#: src/app.jsx:200
 msgid "Show temperature in Fahrenheit"
 msgstr "Temperatur in Fahrenheit anzeigen"
+
+#: src/app.jsx:206
+msgid "Expand all cards"
+msgstr "Erweitern Sie alle Karten"
 
 #: src/app.jsx:174
 msgid "Install"

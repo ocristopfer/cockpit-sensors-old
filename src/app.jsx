@@ -19,17 +19,14 @@
 
 import cockpit from 'cockpit';
 import React from 'react';
-import { Alert, Card, CardTitle, CardBody, Checkbox, DataList, DataListItem, DataListItemRow, DataListItemCells, DataListCell, Button, Spinner } from '@patternfly/react-core';
+import { Alert, Card, CardTitle, CardHeader, CardBody, CardExpandableContent, Checkbox, Button, Spinner, Flex, FlexItem } from '@patternfly/react-core';
 import { FanIcon, ThermometerHalfIcon, ChargingStationIcon, CpuIcon } from '@patternfly/react-icons/dist/esm/icons/';
 const _ = cockpit.gettext;
+
 export class Application extends React.Component {
     constructor() {
         super();
-        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: "-j", isShowLoading: false };
-
-        cockpit.file('/etc/hostname').watch(content => {
-            this.setState({ hostname: content.trim() });
-        });
+        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: "-j", isShowLoading: false, isExpanded: {}, expandAllCards: false };
     }
 
     componentDidMount() {
@@ -45,7 +42,7 @@ export class Application extends React.Component {
 
     loadSensors = () => {
         cockpit
-                .spawn(["sensors", this.state.sensorArgumet].concat(this.state.fahrenheitTemp), { err: "message", superuser: "try" })
+                .spawn(["sensors", this.state.sensorArgumet], { err: "message", superuser: "try" })
                 .done((sucess) => {
                     if (this.state.sensorArgumet === "-j") {
                         this.setState({ sensors: JSON.parse(sucess), isShowBtnInstall: false });
@@ -127,20 +124,30 @@ export class Application extends React.Component {
     handleChange = (checked, event) => {
         this.setState({ fahrenheitChecked: checked });
         if (checked) {
-            this.setAlert(_('lm-sensors has a bug that converts all data to fahrenheit, including voltage, fans and etc.'), 'info');
+            // this.setAlert(_('lm-sensors has a bug that converts all data to fahrenheit, including voltage, fans and etc.'), 'info');
             this.setState({ fahrenheitTemp: ['-f'] });
         } else {
             this.setState({ fahrenheitTemp: [], alert: null });
         }
     };
 
+    handleChangeCards = (checked, event) => {
+        const isExpanded = this.state.isExpanded;
+        Object.keys(isExpanded).forEach((element) => {
+            isExpanded[element] = checked;
+        });
+        console.log(this.state.isExpanded, isExpanded);
+        this.setState({ isExpanded, expandAllCards: checked });
+    };
+
     handleInstallSensors = () => {
         this.setState({ isShowLoading : true });
         cockpit.spawn(["apt-get", "install", "lm-sensors", "-y"], { err: "message", superuser: "require" })
                 .done((sucess) => {
+                    console.log('instalou ?');
+                    this.setState({ isShowLoading : false, isShowBtnInstall: false, alert: null });
                     cockpit.spawn(["sensors-detect", "--auto"], { err: "message", superuser: "require" })
                             .done((sucess) => {
-                                this.setState({ isShowLoading : false });
                                 cockpit.spawn(["modprobe", "coretemp"], { err: "message", superuser: "require" });
                                 cockpit.spawn(["modprobe", "i2c-i801"], { err: "message", superuser: "require" });
                                 cockpit.spawn(["modprobe", "drivetemp"], { err: "message", superuser: "require" });
@@ -150,12 +157,40 @@ export class Application extends React.Component {
                             });
                 })
                 .fail((err) => {
+                    console.log('erro ?');
+                    this.setState({ isShowLoading : false, isShowBtnInstall: false });
                     this.setAlert(err.message, 'warning');
                 });
     };
 
+    adjustValue = (name, value) => {
+        if (name.includes('temp')) {
+            return this.state.fahrenheitChecked
+                ? parseFloat((value * 9 / 5) + 32).toFixed(1)
+                        .toString()
+                        .concat(' °F')
+                : parseFloat(value).toFixed(1)
+                        .toString()
+                        .concat(' °C');
+        }
+
+        if (name.includes('fan')) {
+            return value.toString().concat(' RPM');
+        }
+        return value;
+    };
+
+    handleOnExpand = (event, id) => {
+        // eslint-disable-next-line no-console
+
+        const isExpanded = this.state.isExpanded;
+        isExpanded[id] = !isExpanded[id];
+        console.log(id, this.state.isExpanded, isExpanded);
+        this.setState({ isExpanded });
+    };
+
     render() {
-        const { sensors, alert, fahrenheitChecked, isShowBtnInstall, isShowLoading } = this.state;
+        const { sensors, alert, fahrenheitChecked, isShowBtnInstall, isShowLoading, isExpanded, expandAllCards } = this.state;
         return (
             <>
                 <Card>
@@ -168,40 +203,58 @@ export class Application extends React.Component {
                             id="fahrenheit-checkbox"
                             name="fahrenheit-checkbox"
                         />
+                        <Checkbox
+                            label={_("Expand all cards")}
+                            isChecked={expandAllCards}
+                            onChange={this.handleChangeCards}
+                            id="allcards-checkbox"
+                            name="allcards-checkbox"
+                        />
                         <>
                             {isShowLoading ? <Spinner isSVG /> : <></>}
                             {alert != null ? <Alert variant={alert.variant}>{alert.msg}</Alert> : <></>}
                             {isShowBtnInstall ? <Button onClick={this.handleInstallSensors}>{_('Install')}</Button> : <></>}
                         </>
                         {sensors !== null
-                            ? Object.entries(sensors).map((key, index) =>
+                            ? Object.entries(sensors).map((key, keyIndex) =>
                                 <Card key={key}>
                                     <CardTitle>{key[0]}</CardTitle>
                                     <CardBody>
                                         <CardTitle>{key[1].Adapter}</CardTitle>
-                                        <DataList isCompact>
-                                            <DataListItem>
-                                                {
-                                                    Object.entries(key[1]).map((item, index) => {
-                                                        if (index === 0) return item;
-                                                        return (
-                                                            <React.Fragment key={item}>
-                                                                <span>{item[0]}:</span>
-                                                                <DataListItemRow key={item}>
-                                                                    <DataListItemCells
-                                                                    dataListCells={
-                                                                        Object.entries(item[1]).map((sensors, index) => (
-                                                                            <DataListCell key={sensors}>{index === 0 ? this.setIcon(sensors[0]) : ''} {this.adjustLabel(sensors[0])}: {sensors[1]}</DataListCell>
-                                                                        ))
-                                                                    }
-                                                                    />
-                                                                </DataListItemRow>
-                                                            </React.Fragment>
-                                                        );
-                                                    })
+                                        <Flex key={key[1]}>
+                                            {Object.entries(key[1]).map((item, itemIndex) => {
+                                                if (itemIndex === 0) return "";
+                                                const chave = keyIndex.toString() + itemIndex.toString();
+                                                if (isExpanded[chave] === undefined) {
+                                                    isExpanded[chave] = false;
                                                 }
-                                            </DataListItem>
-                                        </DataList>
+                                                return (
+                                                    <FlexItem key={item} style={{ width:"15%" }}>
+                                                        <Card key={item} id="expandable-card-icon" isExpanded={isExpanded[chave]}>
+                                                            <CardHeader
+                                                                    style={{ justifyContent: 'normal' }}
+                                                                    onExpand={(e) => this.handleOnExpand(e, chave)}
+                                                                    toggleButtonProps={{
+                                                                        id: 'toggle-button2',
+                                                                        'aria-label': 'Patternfly Details',
+                                                                        'aria-expanded': isExpanded[chave]
+                                                                    }}
+                                                            ><CardTitle>{item[0]}</CardTitle>
+                                                            </CardHeader>
+                                                            <CardTitle>{this.setIcon(Object.keys(item[1])[0])} {this.adjustValue(Object.keys(item[1])[0], Object.values(item[1])[0])}
+                                                            </CardTitle>
+                                                            <CardExpandableContent>
+                                                                <CardBody>
+                                                                    {Object.entries(item[1]).map((sensors, index) => (
+                                                                        <span key={sensors}>{this.adjustLabel(sensors[0])}: {sensors[1]}<br /></span>
+                                                                    ))}
+                                                                </CardBody>
+                                                            </CardExpandableContent>
+                                                        </Card>
+                                                    </FlexItem>
+                                                );
+                                            })}
+                                        </Flex>
                                     </CardBody>
                                 </Card>
                             )
