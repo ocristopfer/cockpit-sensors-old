@@ -14,14 +14,14 @@ APPSTREAMFILE=org.cockpit-project.$(PACKAGE_NAME).metainfo.xml
 VM_IMAGE=$(CURDIR)/test/images/$(TEST_OS)
 # stamp file to check for node_modules/
 NODE_MODULES_TEST=package-lock.json
-# one example file in dist/ from webpack to check if that already ran
-WEBPACK_TEST=dist/manifest.json
+# one example file in dist/ from bundler to check if that already ran
+DIST_TEST=dist/manifest.json
 # one example file in pkg/lib to check if it was already checked out
 COCKPIT_REPO_STAMP=pkg/lib/cockpit-po-plugin.js
 # common arguments for tar, mostly to make the generated tarballs reproducible
 TAR_ARGS = --sort=name --mtime "@$(shell git show --no-patch --format='%at')" --mode=go=rX,u+rw,a-s --numeric-owner --owner=0 --group=0
 
-all: $(WEBPACK_TEST)
+all: $(DIST_TEST)
 
 # checkout common files from Cockpit repository required to build this project;
 # this has no API stability guarantee, so check out a stable tag when you start
@@ -34,7 +34,7 @@ COCKPIT_REPO_FILES = \
 	$(NULL)
 
 COCKPIT_REPO_URL = https://github.com/cockpit-project/cockpit.git
-COCKPIT_REPO_COMMIT = 33639ff7015841747032b4158cebd4a3b3f36333 # 273
+COCKPIT_REPO_COMMIT = 54f2fd58a3645c4a222e2b1b9b5f1b9321bed998 # 285 + Move to a webpack module
 
 $(COCKPIT_REPO_FILES): $(COCKPIT_REPO_STAMP)
 COCKPIT_REPO_TREE = '$(strip $(COCKPIT_REPO_COMMIT))^{tree}'
@@ -59,10 +59,10 @@ po/$(PACKAGE_NAME).js.pot:
 		--from-code=UTF-8 $$(find src/ -name '*.js' -o -name '*.jsx')
 
 po/$(PACKAGE_NAME).html.pot: $(NODE_MODULES_TEST) $(COCKPIT_REPO_STAMP)
-	pkg/lib/html2po -o $@ $$(find src -name '*.html')
+	pkg/lib/html2po.js -o $@ $$(find src -name '*.html')
 
 po/$(PACKAGE_NAME).manifest.pot: $(NODE_MODULES_TEST) $(COCKPIT_REPO_STAMP)
-	pkg/lib/manifest2po src/manifest.json -o $@
+	pkg/lib/manifest2po.js src/manifest.json -o $@
 
 po/$(PACKAGE_NAME).metainfo.pot: $(APPSTREAMFILE)
 	xgettext --default-domain=$(PACKAGE_NAME) --output=$@ $<
@@ -80,18 +80,18 @@ po/LINGUAS:
 %.spec: packaging/%.spec.in
 	sed -e 's/%{VERSION}/$(VERSION)/g' $< > $@
 
-$(WEBPACK_TEST): $(NODE_MODULES_TEST) $(COCKPIT_REPO_STAMP) $(shell find src/ -type f) package.json webpack.config.js
+$(DIST_TEST): $(NODE_MODULES_TEST) $(COCKPIT_REPO_STAMP) $(shell find src/ -type f) package.json webpack.config.js
 	NODE_ENV=$(NODE_ENV) node_modules/.bin/webpack
 
 watch:
-	NODE_ENV=$(NODE_ENV) node_modules/.bin/webpack --watch
+	NODE_ENV=$(NODE_ENV) npm run watch
 
 clean:
 	rm -rf dist/
 	rm -f $(SPEC)
 	rm -f po/LINGUAS
 
-install: $(WEBPACK_TEST) po/LINGUAS
+install: $(DIST_TEST) po/LINGUAS
 	mkdir -p $(DESTDIR)$(PREFIX)/share/cockpit/$(PACKAGE_NAME)
 	cp -r dist/* $(DESTDIR)$(PREFIX)/share/cockpit/$(PACKAGE_NAME)
 	mkdir -p $(DESTDIR)$(PREFIX)/share/metainfo/
@@ -100,7 +100,7 @@ install: $(WEBPACK_TEST) po/LINGUAS
 		-o $(DESTDIR)$(PREFIX)/share/metainfo/$(APPSTREAMFILE)
 
 # this requires a built source tree and avoids having to install anything system-wide
-devel-install: $(WEBPACK_TEST)
+devel-install: $(DIST_TEST)
 	mkdir -p ~/.local/share/cockpit
 	ln -s `pwd`/dist ~/.local/share/cockpit/$(PACKAGE_NAME)
 
@@ -115,12 +115,12 @@ print-version:
 dist: $(TARFILE)
 	@ls -1 $(TARFILE)
 
-# when building a distribution tarball, call webpack with a 'production' environment
+# when building a distribution tarball, call bundler with a 'production' environment
 # we don't ship node_modules for license and compactness reasons; we ship a
 # pre-built dist/ (so it's not necessary) and ship package-lock.json (so that
 # node_modules/ can be reconstructed if necessary)
 $(TARFILE): export NODE_ENV=production
-$(TARFILE): $(WEBPACK_TEST) $(SPEC)
+$(TARFILE): $(DIST_TEST) $(SPEC)
 	if type appstream-util >/dev/null 2>&1; then appstream-util validate-relax --nonet *.metainfo.xml; fi
 	tar --xz $(TAR_ARGS) -cf $(TARFILE) --transform 's,^,$(RPM_NAME)/,' \
 		--exclude packaging/$(SPEC).in --exclude node_modules \
@@ -154,10 +154,28 @@ rpm: $(TARFILE) $(NODE_CACHE) $(SPEC)
 	rm -r "`pwd`/rpmbuild"
 	rm -r "`pwd`/output" "`pwd`/build"
 
+ifeq ("$(TEST_SCENARIO)","pybridge")
+COCKPIT_PYBRIDGE_REF = main
+COCKPIT_WHEEL = cockpit-0-py3-none-any.whl
+
+$(COCKPIT_WHEEL):
+	# aka: pip wheel git+https://github.com/cockpit-project/cockpit.git@${COCKPIT_PYBRIDGE_REF}
+	rm -rf tmp/pybridge
+	git init tmp/pybridge
+	git -C tmp/pybridge remote add origin https://github.com/cockpit-project/cockpit
+	git -C tmp/pybridge fetch --depth=1 origin ${COCKPIT_PYBRIDGE_REF}
+	git -C tmp/pybridge reset --hard FETCH_HEAD
+	cp "$$(tmp/pybridge/tools/make-wheel)" $@
+
+VM_DEPENDS = $(COCKPIT_WHEEL)
+VM_CUSTOMIZE_FLAGS = --install $(COCKPIT_WHEEL)
+endif
+
 # build a VM with locally built distro pkgs installed
 # disable networking, VM images have mock/pbuilder with the common build dependencies pre-installed
-$(VM_IMAGE): $(TARFILE) $(NODE_CACHE) bots test/vm.install
+$(VM_IMAGE): $(TARFILE) $(NODE_CACHE) bots test/vm.install $(VM_DEPENDS)
 	bots/image-customize --no-network --fresh \
+		$(VM_CUSTOMIZE_FLAGS) \
 		--upload $(NODE_CACHE):/var/tmp/ --build $(TARFILE) \
 		--script $(CURDIR)/test/vm.install $(TEST_OS)
 
@@ -186,28 +204,20 @@ $(NODE_MODULES_TEST): package.json
 	# if it exists already, npm install won't update it; force that so that we always get up-to-date packages
 	rm -f package-lock.json
 	# unset NODE_ENV, skips devDependencies otherwise
-	env -u NODE_ENV npm install
+	env -u NODE_ENV npm install --ignore-scripts
 	env -u NODE_ENV npm prune
 
 .PHONY: all clean install devel-install devel-uninstall print-version dist node-cache rpm prepare-check check vm print-vm
 
 deb:
-	mkdir -m775 -p "`pwd`/output/cockpit-sensors"
-	mkdir -m775 -p "`pwd`/output/cockpit-sensors/DEBIAN"
-	mkdir -m775 -p "`pwd`/output/cockpit-sensors/usr/share/cockpit/$(PACKAGE_NAME)"
-	cp -r dist/* "`pwd`/output/cockpit-sensors/usr/share/cockpit/$(PACKAGE_NAME)"
-
-	echo "Package: cockpit-$(PACKAGE_NAME) \n\
-Name: Cockpit Sensors \n\
-Description: Cockpit Sensors Module that displays all data reported by lm-sensors. \n\
-Author: ocristopfer <ocristopfer@gmail.com> \n\
-Maintainer: ocristopfer <ocristopfer@gmail.com> \n\
-Version: 1.3 \n\
-Depends: lm-sensors \n\
-Architecture: all \n\
-Homepage: https://github.com/ocristopfer/cockpit-sensors \n\
-Website: https://github.com/ocristopfer/cockpit-sensors " >> "`pwd`/output/cockpit-sensors/DEBIAN/control"
-	
-	dpkg-deb --build output/cockpit-sensors
-	mv "`pwd`/output/cockpit-sensors.deb" "`pwd`/"
+	rm -fr "`pwd`/output"
+	mkdir -m 0755 -p "`pwd`/output"
+	mkdir -m 0755 -p "`pwd`/output/cockpit-$(PACKAGE_NAME)"
+	mkdir -m 0755 -p "`pwd`/output/cockpit-$(PACKAGE_NAME)/DEBIAN"
+	mkdir -m 0755 -p "`pwd`/output/cockpit-$(PACKAGE_NAME)/usr/share/cockpit/$(PACKAGE_NAME)"
+	cp -r dist/* "`pwd`/output/cockpit-$(PACKAGE_NAME)/usr/share/cockpit/$(PACKAGE_NAME)"
+	cp packaging/cockpit-$(PACKAGE_NAME).control "`pwd`/output/cockpit-$(PACKAGE_NAME)/DEBIAN/control"
+	chmod 755 "`pwd`/output/cockpit-$(PACKAGE_NAME)/DEBIAN/control"
+	dpkg-deb --build output/cockpit-$(PACKAGE_NAME)
+	mv "`pwd`/output/cockpit-$(PACKAGE_NAME).deb" "`pwd`/"
 	rm -r "`pwd`/output"
