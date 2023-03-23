@@ -11,7 +11,7 @@ NODE_CACHE=$(RPM_NAME)-node-$(VERSION).tar.xz
 SPEC=$(RPM_NAME).spec
 PREFIX ?= /usr/local
 APPSTREAMFILE=org.cockpit-project.$(PACKAGE_NAME).metainfo.xml
-VM_IMAGE=$(CURDIR)/test/images/$(TEST_OS)
+VM_IMAGE=$(CURDIR)/test/images/$(TEST_OS) 
 # stamp file to check for node_modules/
 NODE_MODULES_TEST=package-lock.json
 # one example file in dist/ from bundler to check if that already ran
@@ -218,6 +218,6 @@ deb:
 	cp -r dist/* "`pwd`/output/cockpit-$(PACKAGE_NAME)/usr/share/cockpit/$(PACKAGE_NAME)"
 	cp packaging/cockpit-$(PACKAGE_NAME).control "`pwd`/output/cockpit-$(PACKAGE_NAME)/DEBIAN/control"
 	chmod 755 "`pwd`/output/cockpit-$(PACKAGE_NAME)/DEBIAN/control"
-	dpkg-deb --build output/cockpit-$(PACKAGE_NAME)
+	dpkg-deb -Zxz --build output/cockpit-$(PACKAGE_NAME)
 	mv "`pwd`/output/cockpit-$(PACKAGE_NAME).deb" "`pwd`/"
 	rm -r "`pwd`/output"
