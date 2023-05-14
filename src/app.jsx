@@ -98,17 +98,19 @@ export class Application extends React.Component {
     };
 
     setIcon = (name) => {
-        if (name.includes('fan')) {
-            return <FanIcon size='md' />;
-        }
-        if (name.includes('temp')) {
-            return <ThermometerHalfIcon size='md' />;
-        }
-        if (name.includes('in')) {
-            return <ChargingStationIcon size='md' />;
-        }
-        if (name.includes('cpu')) {
-            return <CpuIcon size='md' />;
+        if(typeof name != undefined){
+            if (name.includes('fan')) {
+                return <FanIcon size='md' />;
+            }
+            if (name.includes('temp')) {
+                return <ThermometerHalfIcon size='md' />;
+            }
+            if (name.includes('in')) {
+                return <ChargingStationIcon size='md' />;
+            }
+            if (name.includes('cpu')) {
+                return <CpuIcon size='md' />;
+            }
         }
         return <></>;
     };
@@ -164,19 +166,21 @@ export class Application extends React.Component {
     };
 
     adjustValue = (name, value) => {
-        if (name.includes('temp')) {
-            return this.state.fahrenheitChecked
-                ? parseFloat((value * 9 / 5) + 32).toFixed(1)
-                        .toString()
-                        .concat(' °F')
-                : parseFloat(value).toFixed(1)
-                        .toString()
-                        .concat(' °C');
-        }
-
-        if (name.includes('fan')) {
-            return value.toString().concat(' RPM');
-        }
+        if(typeof name != undefined){
+            if (name.includes('temp')) {
+                return this.state.fahrenheitChecked
+                    ? parseFloat((value * 9 / 5) + 32).toFixed(1)
+                            .toString()
+                            .concat(' °F')
+                    : parseFloat(value).toFixed(1)
+                            .toString()
+                            .concat(' °C');
+            }
+    
+            if (name.includes('fan')) {
+                return value.toString().concat(' RPM');
+            }
+        } 
         return value;
     };
 
