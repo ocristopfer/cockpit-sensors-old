@@ -98,7 +98,7 @@ export class Application extends React.Component {
     };
 
     setIcon = (name) => {
-        if(typeof name != undefined){
+        if(typeof name != 'undefined'){
             if (name.includes('fan')) {
                 return <FanIcon size='md' />;
             }
@@ -166,7 +166,7 @@ export class Application extends React.Component {
     };
 
     adjustValue = (name, value) => {
-        if(typeof name != undefined){
+        if(typeof name != 'undefined'){
             if (name.includes('temp')) {
                 return this.state.fahrenheitChecked
                     ? parseFloat((value * 9 / 5) + 32).toFixed(1)
