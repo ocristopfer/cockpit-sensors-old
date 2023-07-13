@@ -5,7 +5,7 @@
   "main": "index.js",
   "repository": "git@github.com:ocristopfer/cockpit-sensors.git",
   "author": "https://github.com/ocristopfer",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "license": "LGPL-2.1",
   "scripts": {
     "watch": "webpack --watch --progress",
@@ -55,8 +55,8 @@
     "webpack-cli": "^4.9.1"
   },
   "dependencies": {
-    "@patternfly/patternfly": "5.0.0-alpha.53",
-    "@patternfly/react-core": "5.0.0-alpha.98",
+    "@patternfly/patternfly": "^4.224.2",
+    "@patternfly/react-core": "^4.276.8",
     "react": "17.0.2",
     "react-dom": "17.0.2"
   }
