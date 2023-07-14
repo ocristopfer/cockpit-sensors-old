@@ -26,12 +26,13 @@ const _ = cockpit.gettext;
 export class Application extends React.Component {
     constructor() {
         super();
-        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: "-j", isShowLoading: false, isExpanded: {}, expandAllCards: false };
+        this.state = { sensors: {}, intervalId: {}, alert: null, fahrenheitTemp: [], fahrenheitChecked: false, isShowBtnInstall: false, sensorArgumet: "-j", isShowLoading: false, isExpanded: {}, expandAllCards: false, isError: false };
     }
 
     componentDidMount() {
         const intervalId = setInterval(() => {
-            this.loadSensors();
+            if (!this.state.isShowBtnInstall && !this.state.isError)
+                this.loadSensors();
         }, 1000);
         this.setState({ intervalId });
     }
@@ -74,13 +75,14 @@ export class Application extends React.Component {
                                 index += 1;
                             });
                         });
-                        this.setState({ sensors: sensorsJson, isShowBtnInstall:  false });
+                        this.setState({ sensors: sensorsJson, isShowBtnInstall: false });
                     }
                 })
                 .fail((err) => {
                     if (err.message === "not-found") {
                         this.setState({ isShowBtnInstall: true });
                         this.setAlert(_('lm-sensors not found, you want install it ?'), 'danger');
+                        this.getLmSensorsInstallCmd(0);
                         return;
                     }
                     if (err.message === "sensors: invalid option -- 'j'") {
@@ -90,6 +92,7 @@ export class Application extends React.Component {
 
                     if (err.message === "sensors: invalid option -- 'u'") {
                         this.setAlert(_("this version of lm-sensors don't suport output sensors data!"), 'danger');
+                        this.setState({ isError: true });
                         return;
                     }
                     this.setAlert(err.message, 'warning');
@@ -142,12 +145,29 @@ export class Application extends React.Component {
         this.setState({ isExpanded, expandAllCards: checked });
     };
 
-    handleInstallSensors = () => {
-        this.setState({ isShowLoading : true });
-        cockpit.spawn(["apt-get", "install", "lm-sensors", "-y"], { err: "message", superuser: "require" })
+    lstPacktsManager = ["apk", "apt-get", "dnf", "zypper"];
+    installCmd = null;
+    getLmSensorsInstallCmd = async (index) => {
+        const cmd = this.lstPacktsManager[index];
+        await cockpit.spawn([cmd, "-v"])
+                .then((sucesso) => {
+                    if (cmd === "apk") {
+                        this.installCmd = [cmd, "add", "--no-cache", "lm-sensors", "-y"];
+                    } else {
+                        this.installCmd = [cmd, "install", "lm-sensors", "-y"];
+                    }
+                })
+                .fail((e) => {
+                    this.getLmSensorsInstallCmd(index + 1);
+                });
+    };
+
+    handleInstallSensors = async () => {
+        this.setState({ isShowLoading: true });
+        cockpit.spawn(this.installCmd, { err: "message", superuser: "require" })
                 .done((sucess) => {
                     console.log('instalou ?');
-                    this.setState({ isShowLoading : false, isShowBtnInstall: false, alert: null });
+                    this.setState({ isShowLoading: false, isShowBtnInstall: false, alert: null });
                     cockpit.spawn(["sensors-detect", "--auto"], { err: "message", superuser: "require" })
                             .done((sucess) => {
                                 cockpit.spawn(["modprobe", "coretemp"], { err: "message", superuser: "require" });
@@ -160,7 +180,7 @@ export class Application extends React.Component {
                 })
                 .fail((err) => {
                     console.log('erro ?');
-                    this.setState({ isShowLoading : false, isShowBtnInstall: false });
+                    this.setState({ isShowLoading: false, isShowBtnInstall: false });
                     this.setAlert(err.message, 'warning');
                 });
     };
@@ -233,16 +253,16 @@ export class Application extends React.Component {
                                                     isExpanded[chave] = false;
                                                 }
                                                 return (
-                                                    <FlexItem key={item} style={{ width:"15%" }}>
+                                                    <FlexItem key={item} style={{ width: "15%" }}>
                                                         <Card key={item} id="expandable-card-icon" isExpanded={isExpanded[chave]}>
                                                             <CardHeader
-                                                                    style={{ justifyContent: 'normal' }}
-                                                                    onExpand={(e) => this.handleOnExpand(e, chave)}
-                                                                    toggleButtonProps={{
-                                                                        id: 'toggle-button2',
-                                                                        'aria-label': 'Patternfly Details',
-                                                                        'aria-expanded': isExpanded[chave]
-                                                                    }}
+                                                                style={{ justifyContent: 'normal' }}
+                                                                onExpand={(e) => this.handleOnExpand(e, chave)}
+                                                                toggleButtonProps={{
+                                                                    id: 'toggle-button2',
+                                                                    'aria-label': 'Patternfly Details',
+                                                                    'aria-expanded': isExpanded[chave]
+                                                                }}
                                                             ><CardTitle>{item[0]}</CardTitle>
                                                             </CardHeader>
                                                             <CardTitle>{this.setIcon(Object.keys(item[1])[0])} {this.adjustValue(Object.keys(item[1])[0], Object.values(item[1])[0])}
