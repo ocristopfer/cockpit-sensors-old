@@ -24,10 +24,6 @@ msgstr "Cockpit Sensoren"
 msgid "Sensors"
 msgstr "Sensoren"
 
-#: org.cockpit-project.sensors.metainfo.xml:6
-msgid "Sensors cockpit module"
-msgstr "Módulo de sensores para o cockpit"
-
 #: org.cockpit-project.sensors.metainfo.xml:8
 msgid "Sensors cockpit module"
 msgstr "Sensoren Cockpit Modul"
