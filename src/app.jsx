@@ -151,10 +151,19 @@ export class Application extends React.Component {
         const cmd = this.lstPacktsManager[index];
         await cockpit.spawn([cmd, "-v"])
                 .then((sucesso) => {
-                    if (cmd === "apk") {
-                        this.installCmd = [cmd, "add", "--no-cache", "lm-sensors", "-y"];
-                    } else {
-                        this.installCmd = [cmd, "install", "lm-sensors", "-y"];
+                    switch (cmd) {
+                        case "apk":
+                            this.installCmd = [cmd, "add", "--no-cache", "lm-sensors", "-y"];
+                            break;
+                        case "dnf":
+                            this.installCmd = [cmd, "install", "lm_sensors", "-y"];
+                            break;
+                        case "zypper":
+                            this.installCmd = [cmd, "install", "-y" "sensors"];
+                            break;
+                        case "apt-get":
+                        default:
+                            this.installCmd = [cmd, "install", "lm-sensors", "-y"];
                     }
                 })
                 .fail((e) => {
